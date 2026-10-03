@@ -1,0 +1,985 @@
+VIRTUAL PC
+  "name": "virtual-windows-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0078d4">
+  <title>Virtual Windows</title>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>import "./style.css";
+
+const state = {
+  windows: new Map(),
+  z: 10,
+  notes: localStorage.getItem("vw-notes") || "",
+  theme: localStorage.getItem("vw-theme") || "light"
+};
+
+const app = document.querySelector("#app");
+
+app.innerHTML = `
+<main class="desktop ${state.theme === "dark" ? "dark" : ""}" id="desktop">
+
+  <div class="desktop-icons">
+
+    <button class="desktop-icon" data-open="explorer">
+      <span class="icon">📁</span>
+      <span>Explorador</span>
+    </button>
+
+    <button class="desktop-icon" data-open="notes">
+      <span class="icon">📝</span>
+      <span>Bloco de Notas</span>
+    </button>
+
+    <button class="desktop-icon" data-open="browser">
+      <span class="icon">🌐</span>
+      <span>Navegador</span>
+    </button>
+
+    <button class="desktop-icon" data-open="about">
+      <span class="icon">💻</span>
+      <span>Este PC</span>
+    </button>
+
+  </div>
+
+  <section id="windows"></section>
+
+  <div class="start-menu" id="startMenu">
+
+    <div class="start-head">
+      <strong>Iniciar</strong>
+      <button id="closeStart">×</button>
+    </div>
+
+    <div class="search">
+      🔎
+      <input
+        id="startSearch"
+        placeholder="Digite aqui para pesquisar"
+      >
+    </div>
+
+    <div class="start-grid">
+
+      <button data-open="explorer">
+        📁
+        <small>Explorador</small>
+      </button>
+
+      <button data-open="notes">
+        📝
+        <small>Bloco de Notas</small>
+      </button>
+
+      <button data-open="browser">
+        🌐
+        <small>Navegador</small>
+      </button>
+
+      <button data-open="settings">
+        ⚙️
+        <small>Configurações</small>
+      </button>
+
+      <button data-open="about">
+        💻
+        <small>Este PC</small>
+      </button>
+
+      <button data-open="calculator">
+        🧮
+        <small>Calculadora</small>
+      </button>
+
+    </div>
+
+    <div class="start-bottom">
+      <span>👤 Usuário</span>
+      <button id="power">⏻</button>
+    </div>
+
+  </div>
+
+  <footer class="taskbar">
+
+    <button
+      class="task-btn start-btn"
+      id="startBtn"
+    >
+      ⊞
+    </button>
+
+    <div class="task-search">
+      🔎
+      <span>Digite aqui para pesquisar</span>
+    </div>
+
+    <div
+      id="taskApps"
+      class="task-apps"
+    ></div>
+
+    <div class="tray">
+      <span>⌁</span>
+      <span>🔊</span>
+      <span id="clock"></span>
+    </div>
+
+  </footer>
+
+</main>
+`;
+
+const desktop = document.querySelector("#desktop");
+const windowsEl = document.querySelector("#windows");
+const taskApps = document.querySelector("#taskApps");
+const startMenu = document.querySelector("#startMenu");
+
+const apps = {
+
+  explorer: {
+    title: "Explorador de Arquivos",
+    icon: "📁",
+
+    html: `
+      <div class="explorer">
+
+        <aside>
+
+          <button class="side active">
+            🏠 Início
+          </button>
+
+          <button class="side">
+            📄 Documentos
+          </button>
+
+          <button class="side">
+            🖼️ Imagens
+          </button>
+
+          <button class="side">
+            🎵 Música
+          </button>
+
+          <button class="side">
+            ⬇️ Downloads
+          </button>
+
+        </aside>
+
+        <div class="explorer-main">
+
+          <div class="address">
+            ←
+            →
+            ↑
+            <input value="Este PC">
+          </div>
+
+          <h2>Acesso rápido</h2>
+
+          <div class="file-grid">
+
+            <div class="file">
+              📁
+              <b>Documentos</b>
+              <small>12 itens</small>
+            </div>
+
+            <div class="file">
+              🖼️
+              <b>Imagens</b>
+              <small>8 itens</small>
+            </div>
+
+            <div class="file">
+              ⬇️
+              <b>Downloads</b>
+              <small>4 itens</small>
+            </div>
+
+            <div class="file">
+              🎵
+              <b>Música</b>
+              <small>16 itens</small>
+            </div>
+
+          </div>
+
+          <h2>Este PC</h2>
+
+          <div class="drive">
+            💽
+            <b>Disco Local (C:)</b>
+            <span>████████░░ 78% livre</span>
+          </div>
+
+        </div>
+
+      </div>
+    `
+  },
+
+  notes: {
+    title: "Bloco de Notas",
+    icon: "📝",
+
+    html: `
+      <textarea
+        class="notes"
+        id="notesArea"
+        placeholder="Digite suas anotações..."
+      ></textarea>
+    `
+  },
+
+  browser: {
+    title: "Navegador",
+    icon: "🌐",
+
+    html: `
+      <div class="fake-browser">
+
+        <div class="browser-bar">
+
+          <button>←</button>
+          <button>→</button>
+
+          <input
+            value="https://virtual.local/"
+            id="browserUrl"
+          >
+
+          <button id="goBrowser">
+            ↻
+          </button>
+
+        </div>
+
+        <div class="browser-page">
+
+          <div class="browser-logo">
+            V
+          </div>
+
+          <h1>Virtual Browser</h1>
+
+          <p>
+            Este é um navegador simulado dentro do desktop.
+          </p>
+
+          <div class="search-big">
+
+            <input
+              placeholder="Pesquisar na web (simulação)"
+            >
+
+            <button>
+              Pesquisar
+            </button>
+
+          </div>
+
+          <p class="muted">
+            Nenhuma conexão externa é necessária.
+          </p>
+
+        </div>
+
+      </div>
+    `
+  },
+
+  calculator: {
+    title: "Calculadora",
+    icon: "🧮",
+
+    html: `
+      <div class="calc">
+
+        <input
+          id="calcDisplay"
+          readonly
+          value="0"
+        >
+
+        <div class="calc-grid">
+
+          ${[
+            "7",
+            "8",
+            "9",
+            "/",
+            "4",
+            "5",
+            "6",
+            "*",
+            "1",
+            "2",
+            "3",
+            "-",
+            "0",
+            ".",
+            "=",
+            "+",
+            "C"
+          ].map(
+            x => `<button data-calc="${x}">${x}</button>`
+          ).join("")}
+
+        </div>
+
+      </div>
+    `
+  },
+
+  settings: {
+    title: "Configurações",
+    icon: "⚙️",
+
+    html: `
+      <div class="settings">
+
+        <h2>Configurações</h2>
+
+        <p>Personalização</p>
+
+        <label class="switchrow">
+
+          Modo escuro
+
+          <input
+            type="checkbox"
+            id="darkToggle"
+          >
+
+        </label>
+
+        <hr>
+
+        <p>
+          Virtual Windows 1.0
+        </p>
+
+        <small>
+          Desktop simulado para navegador.
+        </small>
+
+      </div>
+    `
+  },
+
+  about: {
+    title: "Este PC",
+    icon: "💻",
+
+    html: `
+      <div class="about">
+
+        <div class="pc-logo">
+          🖥️
+        </div>
+
+        <h1>
+          Virtual Windows
+        </h1>
+
+        <p>
+          Desktop simulado inspirado
+          em interfaces modernas.
+        </p>
+
+        <div class="spec">
+
+          <b>Processador</b>
+          <span>Virtual CPU</span>
+
+          <b>Memória</b>
+          <span>8 GB virtual</span>
+
+          <b>Sistema</b>
+          <span>Virtual Windows 10/11</span>
+
+        </div>
+
+      </div>
+    `
+  }
+};
+
+function openApp(id) {
+
+  if (!apps[id]) return;
+
+  if (state.windows.has(id)) {
+
+    focusWindow(id);
+
+    return;
+  }
+
+  const currentApp = apps[id];
+
+  const windowElement =
+    document.createElement("article");
+
+  windowElement.className = "window";
+
+  windowElement.dataset.id = id;
+
+  windowElement.style.zIndex = ++state.z;
+
+  const offset =
+    50 + state.windows.size * 24;
+
+  windowElement.style.left =
+    `${Math.min(offset, innerWidth - 430)}px`;
+
+  windowElement.style.top =
+    `${Math.min(offset, innerHeight - 330)}px`;
+
+  windowElement.innerHTML = `
+
+    <header class="titlebar">
+
+      <span>
+        ${currentApp.icon}
+        ${currentApp.title}
+      </span>
+
+      <div>
+
+        <button class="min">
+          —
+        </button>
+
+        <button class="max">
+          □
+        </button>
+
+        <button class="close">
+          ×
+        </button>
+
+      </div>
+
+    </header>
+
+    <div class="window-content">
+      ${currentApp.html}
+    </div>
+
+  `;
+
+  windowsEl.appendChild(windowElement);
+
+  state.windows.set(
+    id,
+    windowElement
+  );
+
+  addTaskButton(
+    id,
+    currentApp
+  );
+
+  focusWindow(id);
+
+  makeDraggable(
+    windowElement
+  );
+
+  wireApp(
+    id,
+    windowElement
+  );
+}
+
+function wireApp(id, element) {
+
+  if (id === "notes") {
+
+    const area =
+      element.querySelector("#notesArea");
+
+    area.value = state.notes;
+
+    area.addEventListener(
+      "input",
+      () => {
+
+        state.notes =
+          area.value;
+
+        localStorage.setItem(
+          "vw-notes",
+          state.notes
+        );
+
+      }
+    );
+  }
+
+  if (id === "settings") {
+
+    const toggle =
+      element.querySelector("#darkToggle");
+
+    toggle.checked =
+      state.theme === "dark";
+
+    toggle.addEventListener(
+      "change",
+      event => {
+
+        state.theme =
+          event.target.checked
+            ? "dark"
+            : "light";
+
+        localStorage.setItem(
+          "vw-theme",
+          state.theme
+        );
+
+        desktop.classList.toggle(
+          "dark",
+          event.target.checked
+        );
+
+      }
+    );
+  }
+
+  if (id === "calculator") {
+
+    setupCalculator(
+      element
+    );
+  }
+
+  element.querySelector(
+    ".close"
+  ).onclick = () => {
+
+    closeApp(id);
+
+  };
+
+  element.querySelector(
+    ".min"
+  ).onclick = () => {
+
+    element.classList.toggle(
+      "hidden-window"
+    );
+
+  };
+
+  element.querySelector(
+    ".max"
+  ).onclick = () => {
+
+    element.classList.toggle(
+      "maximized"
+    );
+
+  };
+}
+
+function setupCalculator(element) {
+
+  const display =
+    element.querySelector(
+      "#calcDisplay"
+    );
+
+  let expression = "";
+
+  element
+    .querySelectorAll("[data-calc]")
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        const value =
+          button.dataset.calc;
+
+        if (value === "C") {
+
+          expression = "";
+
+        } else if (value === "=") {
+
+          try {
+
+            if (
+              !/^[0-9+*/.() -]+$/
+                .test(expression)
+            ) {
+
+              throw new Error();
+
+            }
+
+            expression =
+              String(
+                Function(
+                  `"use strict";return (${expression})`
+                )()
+              );
+
+          } catch {
+
+            expression = "Erro";
+
+          }
+
+        } else {
+
+          if (
+            expression === "Erro"
+          ) {
+
+            expression = "";
+
+          }
+
+          expression += value;
+
+        }
+
+        display.value =
+          expression || "0";
+
+      };
+
+    });
+}
+
+function addTaskButton(id, currentApp) {
+
+  const button =
+    document.createElement("button");
+
+  button.className =
+    "task-app";
+
+  button.dataset.id =
+    id;
+
+  button.textContent =
+    `${currentApp.icon} ${currentApp.title}`;
+
+  button.onclick = () => {
+
+    const windowElement =
+      state.windows.get(id);
+
+    if (
+      windowElement.classList.contains(
+        "hidden-window"
+      )
+    ) {
+
+      windowElement.classList.remove(
+        "hidden-window"
+      );
+
+      focusWindow(id);
+
+    } else {
+
+      focusWindow(id);
+
+    }
+
+  };
+
+  taskApps.appendChild(
+    button
+  );
+}
+
+function closeApp(id) {
+
+  const windowElement =
+    state.windows.get(id);
+
+  if (windowElement) {
+
+    windowElement.remove();
+
+  }
+
+  state.windows.delete(id);
+
+  const task =
+    taskApps.querySelector(
+      `[data-id="${id}"]`
+    );
+
+  if (task) {
+
+    task.remove();
+
+  }
+}
+
+function focusWindow(id) {
+
+  const windowElement =
+    state.windows.get(id);
+
+  if (!windowElement) return;
+
+  windowElement.classList.remove(
+    "hidden-window"
+  );
+
+  windowElement.style.zIndex =
+    ++state.z;
+
+  taskApps
+    .querySelectorAll(".task-app")
+    .forEach(button => {
+
+      button.classList.toggle(
+        "active",
+        button.dataset.id === id
+      );
+
+    });
+}
+
+function makeDraggable(element) {
+
+  const bar =
+    element.querySelector(
+      ".titlebar"
+    );
+
+  let dragging = false;
+
+  let startX = 0;
+  let startY = 0;
+
+  let originalX = 0;
+  let originalY = 0;
+
+  bar.addEventListener(
+    "pointerdown",
+    event => {
+
+      if (
+        event.target.closest("button") ||
+        element.classList.contains(
+          "maximized"
+        )
+      ) {
+
+        return;
+
+      }
+
+      dragging = true;
+
+      bar.setPointerCapture(
+        event.pointerId
+      );
+
+      startX =
+        event.clientX;
+
+      startY =
+        event.clientY;
+
+      originalX =
+        element.offsetLeft;
+
+      originalY =
+        element.offsetTop;
+
+      focusWindow(
+        element.dataset.id
+      );
+
+    }
+  );
+
+  bar.addEventListener(
+    "pointermove",
+    event => {
+
+      if (!dragging) return;
+
+      element.style.left =
+        `${Math.max(
+          0,
+          originalX +
+          event.clientX -
+          startX
+        )}px`;
+
+      element.style.top =
+        `${Math.max(
+          0,
+          originalY +
+          event.clientY -
+          startY
+        )}px`;
+
+    }
+  );
+
+  bar.addEventListener(
+    "pointerup",
+    () => {
+
+      dragging = false;
+
+    }
+  );
+}
+
+document.addEventListener(
+  "click",
+  event => {
+
+    const opener =
+      event.target.closest(
+        "[data-open]"
+      );
+
+    if (!opener) return;
+
+    openApp(
+      opener.dataset.open
+    );
+
+    startMenu.classList.remove(
+      "open"
+    );
+
+  }
+);
+
+document.querySelector(
+  "#startBtn"
+).onclick = () => {
+
+  startMenu.classList.toggle(
+    "open"
+  );
+
+};
+
+document.querySelector(
+  "#closeStart"
+).onclick = () => {
+
+  startMenu.classList.remove(
+    "open"
+  );
+
+};
+
+document.querySelector(
+  "#power"
+).onclick = () => {
+
+  alert(
+    "Este é um PC virtual simulado. " +
+    "Você pode fechar o navegador para sair."
+  );
+
+};
+
+document.querySelector(
+  ".task-search"
+).onclick = () => {
+
+  startMenu.classList.add(
+    "open"
+  );
+
+  document.querySelector(
+    "#startSearch"
+  ).focus();
+
+};
+
+document.querySelector(
+  "#startSearch"
+).addEventListener(
+  "input",
+  event => {
+
+    const query =
+      event.target.value
+        .toLowerCase();
+
+    document
+      .querySelectorAll(
+        ".start-grid button"
+      )
+      .forEach(button => {
+
+        button.style.display =
+          button.textContent
+            .toLowerCase()
+            .includes(query)
+              ? ""
+              : "none";
+
+      });
+
+  }
+);
+
+function updateClock() {
+
+  document.querySelector(
+    "#clock"
+  ).textContent =
+    new Intl.DateTimeFormat(
+      "pt-BR",
+      {
+        hour: "2-digit",
+        minute: "2-digit"
+      }
+    ).format(
+      new Date()
+    );
+
+}
+
+updateClock();
+
+setInterval(
+  updateClock,
+  1000
+);
+
+openApp("about");
